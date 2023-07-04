@@ -49,6 +49,7 @@ $ python sample.py --out_dir=out-shakespeare-char
 
 This generates a few samples, for example:
 
+
 ```
 ANGELO:
 And cowards it be strawn to my bed,
