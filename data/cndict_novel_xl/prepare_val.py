@@ -3,7 +3,16 @@ Prepare the Shakespeare dataset for character-level language modeling.
 So instead of encoding with GPT-2 BPE tokens, we just map characters to ints.
 Will save train.bin, val.bin containing the ids, and meta.pkl containing the
 encoder and decoder and some other related info.
+
+
+This file is modified to process the seperated val.txt and train.txt.  The two file need to be preared manually. And this file will use the 
+combined file (val.txt + train.txt) to generate the character table to make sure the table includes all the charcters in the two files. And 
+convert the val.txt and train.txt to val.bin and train.bin based on the table.
+
 """
+
+
+
 import os
 import pickle
 import requests
@@ -27,7 +36,7 @@ def convert_to_utf8(file_path):
 
 
 # download the tiny shakespeare dataset
-input_file_path = os.path.join(os.path.dirname(__file__), 'combined_2.txt')
+input_file_path = os.path.join(os.path.dirname(__file__), 'val_1.txt')
 #if not os.path.exists(input_file_path):
 #   data_url = 'https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt'
 #    with open(input_file_path, 'w') as f:
@@ -59,19 +68,19 @@ def decode(l):
 
 # create the train and test splits
 n = len(data)
-train_data = data[:int(n*0.9)]
-val_data = data[int(n*0.9):]
+#train_data = data[:int(n*0.9)]
+val_data = data
 
 # encode both to integers
-train_ids = encode(train_data)
+#train_ids = encode(train_data)
 val_ids = encode(val_data)
-print(f"train has {len(train_ids):,} tokens")
+#print(f"train has {len(train_ids):,} tokens")
 print(f"val has {len(val_ids):,} tokens")
 
 # export to bin files
-train_ids = np.array(train_ids, dtype=np.uint16)
+#train_ids = np.array(train_ids, dtype=np.uint16)
 val_ids = np.array(val_ids, dtype=np.uint16)
-train_ids.tofile(os.path.join(os.path.dirname(__file__), 'train.bin'))
+#train_ids.tofile(os.path.join(os.path.dirname(__file__), 'train.bin'))
 val_ids.tofile(os.path.join(os.path.dirname(__file__), 'val.bin'))
 
 # save the meta information as well, to help us encode/decode later
