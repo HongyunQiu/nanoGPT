@@ -1,5 +1,5 @@
 """
-Prepare the Shakespeare dataset for character-level language modeling.
+Prepare the novel xl dataset for character-level language modeling.
 So instead of encoding with GPT-2 BPE tokens, we just map characters to ints.
 Will save train.bin, val.bin containing the ids, and meta.pkl containing the
 encoder and decoder and some other related info.
@@ -36,7 +36,10 @@ def convert_to_utf8(file_path):
 
 
 # download the tiny shakespeare dataset
-input_file_path = os.path.join(os.path.dirname(__file__), 'val_1.txt')
+input_file_path_train_val = os.path.join(os.path.dirname(__file__), 'train_val.txt')
+input_file_path_train = os.path.join(os.path.dirname(__file__), 'train_1.txt')
+input_file_path_val = os.path.join(os.path.dirname(__file__), 'val_1.txt')
+
 #if not os.path.exists(input_file_path):
 #   data_url = 'https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt'
 #    with open(input_file_path, 'w') as f:
@@ -45,12 +48,24 @@ input_file_path = os.path.join(os.path.dirname(__file__), 'val_1.txt')
 
 # 使用示例
 
-convert_to_utf8(input_file_path)
+#convert_to_utf8(input_file_path_train_val)
+#convert_to_utf8(input_file_path_train)
+#convert_to_utf8(input_file_path_val)
 
+with open(input_file_path_val, 'r') as f:
+    data_val = f.read()
+print(f"length of dataset in characters: {len(data_val):,}")
 
-with open(input_file_path, 'r') as f:
+with open(input_file_path_train, 'r') as f:
+    data_train = f.read()
+print(f"length of dataset in characters: {len(data_train):,}")
+
+with open(input_file_path_train_val, 'r') as f:
     data = f.read()
 print(f"length of dataset in characters: {len(data):,}")
+
+
+
 
 # get all the unique characters that occur in this text
 chars = sorted(list(set(data)))
@@ -67,20 +82,21 @@ def decode(l):
     return ''.join([itos[i] for i in l]) # decoder: take a list of integers, output a string
 
 # create the train and test splits
-n = len(data)
-#train_data = data[:int(n*0.9)]
-val_data = data
+#n = len(data)
+train_data = data_train
+val_data = data_val
+
 
 # encode both to integers
-#train_ids = encode(train_data)
+train_ids = encode(train_data)
 val_ids = encode(val_data)
-#print(f"train has {len(train_ids):,} tokens")
+print(f"train has {len(train_ids):,} tokens")
 print(f"val has {len(val_ids):,} tokens")
 
 # export to bin files
-#train_ids = np.array(train_ids, dtype=np.uint16)
+train_ids = np.array(train_ids, dtype=np.uint16)
 val_ids = np.array(val_ids, dtype=np.uint16)
-#train_ids.tofile(os.path.join(os.path.dirname(__file__), 'train.bin'))
+train_ids.tofile(os.path.join(os.path.dirname(__file__), 'train.bin'))
 val_ids.tofile(os.path.join(os.path.dirname(__file__), 'val.bin'))
 
 # save the meta information as well, to help us encode/decode later
