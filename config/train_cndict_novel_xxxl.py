@@ -1,7 +1,7 @@
 # train a miniature character-level shakespeare model
 # good for debugging and playing on macbooks and such
 
-out_dir = 'out-cndict_novel_xl/80x80x1024'
+out_dir = 'out-cndict_novel_xl/128x128x1536'
 eval_interval = 250 # keep frequent because we'll overfit
 eval_iters = 200
 log_interval = 10 # don't print too too often
@@ -10,18 +10,18 @@ log_interval = 10 # don't print too too often
 always_save_checkpoint = False
 
 wandb_log = True # override via command line if you like
-wandb_project = 'cndict_novel_xxl'
+wandb_project = 'cndict_novel_xxxl'
 wandb_run_name = 'qhy-gpt-A100'
 
 dataset = 'cndict_novel_xl'
-gradient_accumulation_steps = 2
+gradient_accumulation_steps = 8
 batch_size = 8
-block_size = 1024 # context of up to 256 previous character
+block_size = 512 # context of up to 256 previous character
 
 # baby GPT model :)
-n_layer = 128
+n_layer = 128       
 n_head = 128
-n_embd = 1024
+n_embd = 1536
 dropout = 0.2
 
 learning_rate = 1e-3 # with baby networks can afford to go a bit higher
