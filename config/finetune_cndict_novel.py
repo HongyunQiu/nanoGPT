@@ -1,14 +1,14 @@
 import time
 
-out_dir = 'out-shakespeare'
-eval_interval = 5
-eval_iters = 40
-wandb_log = False # feel free to turn on
-wandb_project = 'shakespeare'
+out_dir = 'out-cndict_novel/32x32x2048'
+eval_interval = 500
+eval_iters = 500
+wandb_log = True # feel free to turn 
+wandb_project = 'cn-dict_novel_finetune'
 wandb_run_name = 'ft-' + str(time.time())
 
-dataset = 'shakespeare'
-init_from = 'gpt2-xl' # this is the largest GPT-2 model
+dataset = 'lora'
+init_from = 'resume' # this is the largest GPT-2 model
 
 # only save checkpoints if the validation loss improves
 always_save_checkpoint = False
@@ -18,10 +18,9 @@ always_save_checkpoint = False
 # shakespeare has 301,966 tokens, so 1 epoch ~= 9.2 iters
 batch_size = 1
 gradient_accumulation_steps = 32
-max_iters = 20
-
-
+max_iters = 25000
+lr_decay_iters = 25000 # make equal to max_iters usually
+block_size = 256 # context of up to 256 previous characters
 # finetune at constant LR
 learning_rate = 3e-5
 decay_lr = False
-min_lr = 1e-4 # learning_rate / 10 usually
