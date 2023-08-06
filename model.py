@@ -354,6 +354,7 @@ class GPT(nn.Module):
             probs = F.softmax(logits, dim=-1)
             # sample from the distribution
             idx_next = torch.multinomial(probs, num_samples=1)
+            #print (probs.numel())
             #print (idx_next)
             decode = lambda l: ''.join([itos[i] for i in l])
             #print(decode(idx_next[0].tolist()),end='')

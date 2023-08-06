@@ -125,6 +125,7 @@ print(os.path.join(data_dir, 'val.bin'))
 
 def get_batch(split):
     data = train_data if split == 'train' else val_data
+    ## get a context from train(val) data. size is batch_size, random position 
     ix = torch.randint(len(data) - block_size, (batch_size,))
     x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
