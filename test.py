@@ -5,10 +5,13 @@
 
 
 import os
+import torch
 import pickle
 import numpy as np
 
 from model import GPTConfig, GPT
+
+
 
 
 
@@ -54,6 +57,26 @@ def update_meta_with_new_chars(text, itos, stoi, meta_path):
 
 
 
+def updateModel(vocab_size):
+    model_args['vocab_size'] = new_vocab_size
+    # Step 2: 创建新的模型实例
+    gptconf = GPTConfig(**model_args)
+    new_model = GPT(gptconf)
+
+    # Step 3: 使用原始checkpoint的state_dict加载模型的权重
+    state_dict = checkpoint['model']
+    # fix the keys of the state dictionary as before
+    unwanted_prefix = '_orig_mod.'
+    for k, v in list(state_dict.items()):
+        if k.startswith(unwanted_prefix):
+            state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+
+    new_model.load_state_dict(state_dict)
+    checkpoint['model_args'] = model_args  # 更新模型参数
+    checkpoint['model'] = new_model.state_dict()  # 更新模型权重
+    torch.save(checkpoint, model_file)
+
+
 
 
 
@@ -63,8 +86,8 @@ print ("model file:"+model_file_path)
 
 
 # need to put the meta.pkl and the input txt file to this folder for first
-input_file_folder="data/ft-highlayer-slowlr"
-input_file_path=os.getcwd() +"/" + input_file_folder +"/"+"wiki_zh_2019.txt"
+input_file_folder="data/cndict_novel_instruct"
+input_file_path=os.getcwd() +"/" + input_file_folder +"/"+"novel_cn_token512_50k.json"
 print ("input txt file:"+input_file_path)
 
 # load the model and the token dict file
@@ -128,22 +151,5 @@ val_ids.tofile(os.path.join(os.path.dirname(__file__), 'val.bin'))
 
 new_vocab_size = meta['vocab_size']
 
-print ("vocab_size in final"+ new_vocab_size)
+print (f"vocab_size in final {new_vocab_size}")
 
-model_args['vocab_size'] = new_vocab_size
-# Step 2: 创建新的模型实例
-gptconf = GPTConfig(**model_args)
-new_model = GPT(gptconf)
-
-# Step 3: 使用原始checkpoint的state_dict加载模型的权重
-state_dict = checkpoint['model']
-# fix the keys of the state dictionary as before
-unwanted_prefix = '_orig_mod.'
-for k, v in list(state_dict.items()):
-    if k.startswith(unwanted_prefix):
-        state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
-
-new_model.load_state_dict(state_dict)
-checkpoint['model_args'] = model_args  # 更新模型参数
-checkpoint['model'] = new_model.state_dict()  # 更新模型权重
-torch.save(checkpoint, model_file)

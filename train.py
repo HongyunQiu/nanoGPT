@@ -127,8 +127,12 @@ def get_batch(split):
     data = train_data if split == 'train' else val_data
     ## get a context from train(val) data. size is batch_size, random position 
     ix = torch.randint(len(data) - block_size, (batch_size,))
+
+    ## note: x or y may have multpe batch . so x is with multiple batch , each batch has block size token
     x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
+
+
     if device_type == 'cuda':
         # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
         x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(device, non_blocking=True)
@@ -148,6 +152,9 @@ if os.path.exists(meta_path):
         meta = pickle.load(f)
     meta_vocab_size = meta['vocab_size']
     print(f"found vocab_size = {meta_vocab_size} (inside {meta_path})")
+    stoi, itos = meta['stoi'], meta['itos']
+    encode = lambda s: [stoi[c] for c in s]
+    decode = lambda l: ''.join([itos[i] for i in l])
 
 # model init
 model_args = dict(n_layer=n_layer, n_head=n_head, n_embd=n_embd, block_size=block_size,
@@ -305,10 +312,25 @@ while True:
             # looking at the source of that context manager, it just toggles this variable
             model.require_backward_grad_sync = (micro_step == gradient_accumulation_steps - 1)
         with ctx:
-            logits, loss = model(X, Y)
+            ## Forward calculation 
+            logits, loss = model(X, Y)    
             loss = loss / gradient_accumulation_steps # scale the loss to account for gradient accumulation
         # immediately async prefetch next batch while model is doing the forward pass on the GPU
         X, Y = get_batch('train')
+
+
+        #print (X)
+        # 将X从GPU转移到CPU并转换为numpy数组
+        
+        X_cpu = X.cpu().numpy()
+        print("train data batch length",len(X_cpu))
+        # 对每一个batch进行解码并打印，row代表每一个batch
+        for row in X_cpu:
+            text = decode(row)
+            print(text)
+            print("\033[32m --------------- \033[0m ")
+
+
         # backward pass, with gradient scaling if training in fp16
         scaler.scale(loss).backward()
     # clip the gradient
