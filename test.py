@@ -87,7 +87,7 @@ print ("model file:"+model_file_path)
 
 # need to put the meta.pkl and the input txt file to this folder for first
 input_file_folder="data/cndict_novel_instruct"
-input_file_path=os.getcwd() +"/" + input_file_folder +"/"+"novel_cn_token512_50k.json"
+input_file_path=os.getcwd() +"/" + input_file_folder +"/"+""
 print ("input txt file:"+input_file_path)
 
 # load the model and the token dict file
