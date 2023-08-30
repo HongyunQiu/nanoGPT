@@ -2,7 +2,7 @@
 # good for debugging and playing on macbooks and such
 
 out_dir = 'out-cndict_novel_xl/hihglayer_slowlr'
-eval_interval = 250 # keep frequent because we'll overfit
+eval_interval = 1000 # keep frequent because we'll overfit
 eval_iters = 200
 log_interval = 10 # don't print too too often
 
@@ -15,7 +15,7 @@ wandb_project = 'cndict_novel_xxl_slowlr'
 wandb_run_name = 'qhy-gpt-A100_slowlr'
 
 dataset = 'cndict_novel_xl'
-gradient_accumulation_steps = 4
+gradient_accumulation_steps = 2
 batch_size = 1
 block_size = 1024 # context of up to 256 previous character
 
@@ -23,7 +23,7 @@ block_size = 1024 # context of up to 256 previous character
 n_layer = 256
 n_head = 128
 n_embd = 1024
-dropout = 0.05
+dropout = 0.15
 
 learning_rate = 1e-4 # with baby networks can afford to go a bit higher
 max_iters = 800000
@@ -31,7 +31,7 @@ lr_decay_iters = 800000 # make equal to max_iters usually
 min_lr = 1e-5 # learning_rate / 10 usually
 beta2 = 0.99 # make a bit bigger because number of tokens per iter is small
 
-warmup_iters = 100 # not super necessary potentially
+warmup_iters = 0 # not super necessary potentially
 
 # on macbook also add
 # device = 'cpu'  # run on cpu only
