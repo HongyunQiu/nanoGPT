@@ -9,5 +9,8 @@ __pycache__/
 *.pyc
 input.txt
 *.png
-
+/data/cndict_novel_xl/*.txt
+/data/ft-highlayer-slowlr/*.txt
+/data/cndict_novel/*.txt
+/data/cndict_novel_instruct/*.txt
 /wandb
