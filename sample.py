@@ -32,6 +32,9 @@ device_type = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.aut
 ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
 ctx = nullcontext() if device_type == 'cpu' else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
 
+
+
+
 # model
 if init_from == 'resume':
     # init from a model saved in a specific directory
@@ -91,6 +94,13 @@ with torch.no_grad():
             #print(decode(y[0].tolist()))
             
             #using streaming generate.will print the text one by one in generation api  
+                # if (k==0):
+                # max_new_tokens=1500
+                # else :
+                # max_new_tokens=2500
+
+
+
             y = model.generate_streaming(x, max_new_tokens, temperature=temperature, top_k=top_k, itos=itos)
 
             print("\n")

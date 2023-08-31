@@ -39,3 +39,18 @@ It is important to use the dict of the model to generate the train/val dataset.
 
 
 2.Prepare the config file
+
+
+
+
+
+
+# The output txt various issue in multipe num_samples
+We found the same seed will output the same context only in the first samples. The secondary samples will change if we change the max_tocken . We think the problem is due to some memory is not be reset when generate the secondary samples. The secondary samples will use the memory of the first samples. If we fixed the first samples's lenght ,only chage the seconday samples's lenght, the secondary samples will be the same.
+
+
+# use 2-D image to visualize the weight of the model
+In order to under stand the LLM better, we can use the 2D image to visual the weight of each part of the model. But we found the resulst is the image with random background. there is some stucture in the image but not very easy to see. We think the problem is the weight is initialized with random number. The training is based the random number . The structure is too tiny to compare with the random structure. It is best to use the delta weight to visual it. We can record the delta weight during the training and make it into a movie.
+
+
+
