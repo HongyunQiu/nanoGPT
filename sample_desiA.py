@@ -9,16 +9,19 @@ import torch
 import tiktoken
 from model import GPTConfig, GPT
 
+import matplotlib.pyplot as plt
+from astropy.io import fits
+
 # -----------------------------------------------------------------------------
 init_from = 'resume' # either 'resume' (from an out_dir) or a gpt2 variant (e.g. 'gpt2-xl')
-out_dir = 'out' # ignored if init_from is not 'resume'
-start = "\n" # or "<|endoftext|>" or etc. Can also specify a file, use as: "FILE:prompt.txt"
-num_samples = 1 # number of samples to draw
-max_new_tokens = 2000 # number of tokens generated in each sample
-temperature = 0.8 # 1.0 = no change, < 1.0 = less random, > 1.0 = more random, in predictions
+out_dir = 'out-desiBig' # ignored if init_from is not 'resume'
+start = "daa4a\n" # or "<|endoftext|>" or etc. Can also specify a file, use as: "FILE:prompt.txt"
+num_samples = 100 # number of samples to draw
+max_new_tokens = 4096 # number of tokens generated in each sample
+temperature = 1.0 # 1.0 = no change, < 1.0 = less random, > 1.0 = more random, in predictions
 top_k = 300 # retain only the top_k most likely tokens, clamp others to have 0 probability
 seed = 1338
-device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
+device = 'cuda:1' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
 compile = True # use PyTorTch 2.0 to compile the model to be faster
 exec(open('configurator.py').read()) # overrides from command line or config file
@@ -81,10 +84,23 @@ else:
 if start.startswith('FILE:'):
     with open(start[5:], 'r', encoding='utf-8') as f:
         start = f.read()
+        
+        
 start_ids = encode(start)
+start_ids[0]=0
 print (start_ids)
+
 x = (torch.tensor(start_ids, dtype=torch.long, device=device)[None, ...])
+x[0][0]=0
+x[0][1]=35000
+x[0][2]=35380
+x[0][3]=33500
 print (x)
+
+
+# 初始化一个空的二维数组来保存所有的spectrum
+all_spectrums = []
+
 # run generation
 with torch.no_grad():
     with ctx:
@@ -93,16 +109,43 @@ with torch.no_grad():
             #y = model.generate(x, max_new_tokens, temperature=temperature, top_k=top_k)
             #print(decode(y[0].tolist()))
             
-            #using streaming generate.will print the text one by one in generation api  
-            #if (k==0):
-            #   max_new_tokens=1000
-            #else :
-            #   max_new_tokens=3000
-
-
-
-            y = model.generate_streaming(x, max_new_tokens, temperature=temperature, top_k=top_k, itos=itos)
-
+            #using streaming generate
+            y = model.generate_streaming_raw(x, max_new_tokens, temperature=temperature, top_k=top_k)
+            
+            
             print("\n")
             print("\033[32m --------------- \033[0m ")
+            print(y)
+            
+            spectrum = y.cpu().numpy()[0]
+            x_coords = range(len(spectrum))
+            all_spectrums.append(spectrum)
+            
+            
+            # 绘制曲线
+            plt.plot(x_coords, spectrum)
 
+            # 添加标题和轴标签
+            plt.title("Spectrum Plot")
+            plt.xlabel("Index")
+            plt.ylabel("Value")
+
+            # 显示图形
+            plt.show()
+            
+            
+            print("\n")
+            print("\034[32m --------------- \034[0m ")
+
+
+
+
+
+# 将所有的spectrum保存到一个FITS文件中
+
+hdu = fits.PrimaryHDU(all_spectrums)
+#hdu[0].data = all_spectrums
+#hdu[0].header['BITPIX'] = 16
+#hdu[0].header['BSCALE'] = 1
+#hdu[0].header['BZERO'] = 32768
+hdu.writeto('all_spectrumsA.fits',overwrite=True)

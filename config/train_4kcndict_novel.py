@@ -1,7 +1,7 @@
 # train a miniature character-level shakespeare model
 # good for debugging and playing on macbooks and such
 
-out_dir = 'out-desi2'
+out_dir = 'out-cndict4k'
 eval_interval = 250 # keep frequent because we'll overfit
 eval_iters = 200
 log_interval = 10 # don't print too too often
@@ -10,12 +10,12 @@ log_interval = 10 # don't print too too often
 always_save_checkpoint = False
 
 wandb_log = True # override via command line if you like
-wandb_project = 'desiGPT'
-wandb_run_name = 'desiGPT_4K'
+wandb_project = 'cndict4k_GPT'
+wandb_run_name = 'cndict4k-gpt'
 
-dataset = 'desiGPT'
-gradient_accumulation_steps = 2
-batch_size = 2
+dataset = 'cndict_novel_xl'
+gradient_accumulation_steps = 1
+batch_size = 1
 block_size = 4096 # context of up to 256 previous characters
 
 # baby GPT model :)

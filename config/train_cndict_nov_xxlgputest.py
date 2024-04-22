@@ -14,7 +14,7 @@ wandb_project = 'cndict_novel_xxl'
 wandb_run_name = 'qhy-gpt-A100'
 
 dataset = 'cndict_novel_xl'
-gradient_accumulation_steps = 2
+gradient_accumulation_steps = 6
 batch_size = 8
 block_size = 1024 # context of up to 256 previous character
 

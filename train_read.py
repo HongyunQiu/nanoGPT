@@ -29,40 +29,55 @@ from torch.distributed import init_process_group, destroy_process_group
 
 from model import GPTConfig, GPT
 
-import matplotlib.pyplot as plt
-from astropy.io import fits
 
-import random
-
+def read_all_text_files(directory_path):
+    # 列出目录下的所有文件
+    files = os.listdir(directory_path)
+    
+    # 创建一个字典来存储文件名和其内容以及字数
+    content_dict = {}
+    #token_dict = {}
+    
+    for file in files:
+        # 判断文件是否是文本文件，这里我们假设文本文件的扩展名是 .txt
+        if file.endswith('.txt'):
+            with open(os.path.join(directory_path, file), 'r', encoding='utf-8') as f:
+                content = f.read()
+                #tokens = encode(content)  # 转换内容为token列表 
+                word_count = len(content)  # 统计文章的单词数
+                content_dict[file] = {"content": content, "word_count": word_count}
+                #token_dict[file] = tokens
+    return content_dict
 
 
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
-out_dir = 'out_desi_1'
-eval_interval = 250
+out_dir = 'out-cndict_novel_xl/hihglayer_slowlr'
+eval_interval = 200
 log_interval = 1
 eval_iters = 200
 eval_only = False # if True, script exits right after the first eval
-always_save_checkpoint = False # if True, always save a checkpoint after each eval
-init_from = 'scratch' # 'scratch' or 'resume' or 'gpt2*'
+always_save_checkpoint = True # if True, always save a checkpoint after each eval
+init_from = 'resume' # 'scratch' or 'resume' or 'gpt2*'
 # wandb logging
-wandb_log = True    # disabled by default
-wandb_project = 'desi_gpt'
-wandb_run_name = 'DesiGPT' + 'run' + str(time.time())
+wandb_log = False # disabled by default
+wandb_project = 'owt'
+wandb_run_name = 'gpt2' # 'run' + str(time.time())
 # data
-dataset = 'desi'
-gradient_accumulation_steps = 4  # used to simulate larger batch sizes
+dataset = 'cndict_novel_xl'
+datafolder = 'TextForRead2'
+gradient_accumulation_steps = 1 # used to simulate larger batch sizes
 batch_size = 1 # if gradient_accumulation_steps > 1, this is the micro-batch size
-block_size = 4096
+block_size = 1024
 # model
-n_layer = 64
-n_head = 32
-n_embd = 768
-dropout = 0 # for pretraining 0 is good, for finetuning try 0.1+
+n_layer = 256
+n_head = 128
+n_embd = 1024
+dropout = 0.1 # for pretraining 0 is good, for finetuning try 0.1+
 bias = False # do we use bias inside LayerNorm and Linear layers?
 # adamw optimizer
-learning_rate = 1e-4 # max learning rate
+learning_rate = 5e-5 # max learning rate
 max_iters = 600000 # total number of training iterations
 weight_decay = 1e-1
 beta1 = 0.9
@@ -70,31 +85,25 @@ beta2 = 0.95
 grad_clip = 1.0 # clip gradients at this value, or disable if == 0.0
 # learning rate decay settings
 decay_lr = True # whether to decay the learning rate
-warmup_iters = 2000 # how many steps to warm up for
+warmup_iters = 0 # how many steps to warm up for
 lr_decay_iters = 600000 # should be ~= max_iters per Chinchilla
 min_lr = 6e-5 # minimum learning rate, should be ~= learning_rate/10 per Chinchilla
 # DDP settings
 backend = 'nccl' # 'nccl', 'gloo', etc.
 # system
-device = 'cuda:1' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1' etc., or try 'mps' on macbooks
+device = 'cuda:3' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1' etc., or try 'mps' on macbooks
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32', 'bfloat16', or 'float16', the latter will auto implement a GradScaler
 compile = True # use PyTorch 2.0 to compile the model to be faster
 # -----------------------------------------------------------------------------
 config_keys = [k for k,v in globals().items() if not k.startswith('_') and isinstance(v, (int, float, bool, str))]
 exec(open('configurator.py').read()) # overrides from command line or config file
 config = {k: globals()[k] for k in config_keys} # will be useful for logging
-
-
-plt.ion()
-plt.show()
-spectrum = np.random.rand(4096)
-fig, ax = plt.subplots()
-line, = ax.plot(spectrum)
 # -----------------------------------------------------------------------------
+read_counter = 0
 
 
 # various inits, derived attributes, I/O setup
-ddp = int(os.environ.get('RANK', -1)) !=1337 -1 # is this a ddp run?
+ddp = int(os.environ.get('RANK', -1)) != -1 # is this a ddp run?
 if ddp:
     init_process_group(backend=backend)
     ddp_rank = int(os.environ['RANK'])
@@ -130,80 +139,73 @@ ctx = nullcontext() if device_type == 'cpu' else torch.amp.autocast(device_type=
 
 # poor man's data loader
 data_dir = os.path.join('data', dataset)
-
-print('desi gpt train begin')
-print(data_dir)
-file_name_train = os.path.join(data_dir, 'train.fits')
-file_name_val   = os.path.join(data_dir, 'test.fits')
-
-hdu_list_train = fits.open(file_name_train)
-hdu_list_val   = fits.open(file_name_val)
-
-# 读取图像数据1337
-image_data_train = hdu_list_train[0].data
-image_data_val   = hdu_list_val[0].data
-
-print(image_data_val)
-
-# 显示图像
-dropout = 0.05
-#plt.imshow(image_data_train, cmap='gray')
-#plt.imshow(image_data_val,cmap='gray')
-#plt.colorbar()
-#plt.show()
-
-# 关闭 FITS 文件
-hdu_list_train.close()
-hdu_list_val.close()
-
-train_data = image_data_train
-val_data   = image_data_val
-
-print ('train_data',train_data)
-
-#train_data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
-#val_data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
-
-
-
+train_data = np.memmap(os.path.join(data_dir, 'train.bin'), dtype=np.uint16, mode='r')
+val_data = np.memmap(os.path.join(data_dir, 'val.bin'), dtype=np.uint16, mode='r')
 
 print(os.path.join(data_dir, 'train.bin'))
 print(os.path.join(data_dir, 'val.bin'))
 
-            
-            
-            
 
-def get_batch(split):
+file_contents = read_all_text_files(os.path.join('data',datafolder))
+
+# 打印每个文件的内容
+for file_name, details in file_contents.items():
+    print(f'File: {file_name}')
+    print('-' * 50)
+    print(f"Content:\n{details['content']}")
+    print('-' * 50)
+    print(f"Word Count: {details['word_count']}")
+    print('=' * 50)
+
+
+total_entries = len(file_contents)
+print(f"There are {total_entries} entries in file_contents.")
+# 转换字典的值（文本内容）为列表
+contents_list = list(file_contents.values())   
+
+
+
+
+
+def get_batch(split,counter):
     data = train_data if split == 'train' else val_data
     ## get a context from train(val) data. size is batch_size, random position 
-    #print(data.shape)
-    #get the total rows number
-    total_row = data.shape[0]
-    #print('total row',total_row)
-     
-    #generate a random row nmber and use this to train/val
-    random_number = random.randrange(0, total_row)
-    
-    #print('split',split)
-    #print('batch_size',batch_size,'len data',len(data),'block_size',block_size)
     #ix = torch.randint(len(data) - block_size, (batch_size,))
-    #print('ix',ix)
+
+    content_N_dict = contents_list[counter]
+    counter = counter + 1
+    ix = encode(content_N_dict['content'])
     
+    ix=ix[:1024]
+    
+    #print('get_batch | ix ',ix);
+    #print('get_batch | ix length',len(ix)) 
+    
+    
+    new_array_x = ix[0:1024]    
+    new_array_y = ix[1:]+[0]
+
+    # 转换列表为NumPy数组
+    new_array_x_np = np.array(new_array_x)
+    new_array_y_np = np.array(new_array_y)
+
+    #print('get_batch | new_array_x ',new_array_x)
+    #print('get_batch | new_array_y ',new_array_y)
+ 
+    x = torch.stack([torch.from_numpy(new_array_x_np.astype(np.int64))])
+    y = torch.stack([torch.from_numpy(new_array_y_np.astype(np.int64))])
+  
+    
+
     ## note: x or y may have multpe batch . so x is with multiple batch , each batch has block size token
     #x = torch.stack([torch.from_numpy((data[i:i+block_size]).astype(np.int64)) for i in ix])
     #y = torch.stack([torch.from_numpy((data[i+1:i+1+block_size]).astype(np.int64)) for i in ix])
-    
-    new_array_x = np.insert(data[random_number],0,0)[:-1]
-    new_array_y = data[random_number]
-    
-    x = torch.stack([torch.from_numpy(new_array_x.astype(np.int64))])
-    y = torch.stack([torch.from_numpy(new_array_y.astype(np.int64))])
-  
 
-    #print('x=',x)
-    #print('y=',y)
-
+    #print('get_batch | x ',x)
+    #print('get_batch | y ',y)
+    #print('get_batch | x length',len(x))
+    #print('get_batch | y length',len(y))   
+    
     if device_type == 'cuda':
         # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
         x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(device, non_blocking=True)
@@ -216,16 +218,20 @@ iter_num = 0
 best_val_loss = 1e9
 
 # attempt to derive vocab_size from the dataset
-#meta_path = os.path.join(data_dir, 'meta.pkl')
-meta_vocab_size = 65535
-#if os.path.exists(meta_path):
-#with open(meta_path, 'rb') as f:
-#    meta = pickle.load(f)
-#meta_vocab_size = meta['vocab_size']
-#print(f"found vocab_size = {meta_vocab_size} (inside {meta_path})")
-#stoi, itos = meta['stoi'], meta['itos']
-#encode = lambda s: [stoi[c] for c in s]
-#decode = lambda l: ''.join([itos[i] for i in l])
+meta_path = os.path.join(data_dir, 'meta.pkl')
+meta_vocab_size = None
+if os.path.exists(meta_path):
+    with open(meta_path, 'rb') as f:
+        meta = pickle.load(f)
+    meta_vocab_size = meta['vocab_size']
+    print(f"found vocab_size = {meta_vocab_size} (inside {meta_path})")
+    stoi, itos = meta['stoi'], meta['itos']
+    #encode = lambda s: [stoi[c] for c in s]
+    
+    #Qiu modified ignore the input token not exist in the current vocab
+    encode = lambda s: [stoi[c] for c in s if c in stoi]
+
+    decode = lambda l: ''.join([itos[i] for i in l])
 
 # model init
 model_args = dict(n_layer=n_layer, n_head=n_head, n_embd=n_embd, block_size=block_size,
@@ -305,15 +311,7 @@ def estimate_loss():
     for split in ['train', 'val']:
         losses = torch.zeros(eval_iters)
         for k in range(eval_iters):
-            X, Y = get_batch(split)
-            line.set_ydata(X.cpu().numpy())
-            ax.relim()
-            ax.autoscale_view()
-            plt.draw()
-            plt.pause(0.1)
-            #print ('X',X.cpu().numpy())
-            #print('X',X)
-            #print('Y',Y)
+            X, Y = get_batch(split,read_counter)
             with ctx:
                 logits, loss = model(X, Y)
             losses[k] = loss.item()
@@ -341,12 +339,13 @@ if wandb_log and master_process:
     wandb.init(project=wandb_project, name=wandb_run_name, config=config)
 
 # training loop
-X, Y = get_batch('train') # fetch the very first batch
+X, Y = get_batch('train',read_counter) # fetch the very first batch
 t0 = time.time()
 local_iter_num = 0 # number of iterations in the lifetime of this process
 raw_model = model.module if ddp else model # unwrap DDP container if needed
 running_mfu = -1.0
 while True:
+
     # determine and set the learning rate for this iteration
     lr = get_lr(iter_num) if decay_lr else learning_rate
     for param_group in optimizer.param_groups:
@@ -356,7 +355,6 @@ while True:
     if iter_num % eval_interval == 0 and master_process:
         losses = estimate_loss()
         print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-        
         if wandb_log:
             wandb.log({
                 "iter": iter_num,
@@ -380,6 +378,7 @@ while True:
                 torch.save(checkpoint, os.path.join(out_dir, 'ckpt.pt'))
     if iter_num == 0 and eval_only:
         break
+
     # forward backward update, with optional gradient accumulation to simulate larger batch size
     # and using the GradScaler if data type is float16
     for micro_step in range(gradient_accumulation_steps):
@@ -394,22 +393,26 @@ while True:
             logits, loss = model(X, Y)    
             loss = loss / gradient_accumulation_steps # scale the loss to account for gradient accumulation
         # immediately async prefetch next batch while model is doing the forward pass on the GPU
-        X, Y = get_batch('train')
+        if(read_counter > total_entries - 2):
+            print('total train text finished')
+            break
+        read_counter += 1
+        X, Y = get_batch('train',read_counter)
+        print('read_counter',read_counter)
+
+
 
 
         #print (X)
         # 将X从GPU转移到CPU并转换为numpy数组
         
         X_cpu = X.cpu().numpy()
-        #print("train data batch length",len(X_cpu))
+        print("train data batch length",len(X_cpu))
         # 对每一个batch进行解码并打印，row代表每一个batch
-        
-        
-        #for row in X_cpu:
-        #    text = decode(row)
-        #    print(text)
-        #    print("\033[32m --------------- \033[0m ")
-
+        for row in X_cpu:
+            text = decode(row)
+            print(text)
+            print("\033[32m --------------- \033[0m ")
 
         # backward pass, with gradient scaling if training in fp16
         scaler.scale(loss).backward()
@@ -441,6 +444,20 @@ while True:
     # termination conditions
     if iter_num > max_iters:
         break
+    if(read_counter > total_entries - 2):
+        checkpoint = {
+                    'model': raw_model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'model_args': model_args,
+                    'iter_num': iter_num,
+                    'best_val_loss': best_val_loss,
+                    'config': config,
+                }
+        print(f"saving checkpoint to {out_dir}")
+        print('total train text finished 2 ')
+        torch.save(checkpoint, os.path.join(out_dir, 'ckpt.pt'))
+        break   
+    
 
 if ddp:
     destroy_process_group()
